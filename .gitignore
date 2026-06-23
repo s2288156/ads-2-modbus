@@ -1,0 +1,51 @@
+# Virtual environment
+venv/
+.env
+.venv/
+ENV/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# IDE directories
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Log files
+*.log
+logs/
+
+# Configuration files
+*.ini
+*.cfg
+*.conf
+local_config.py
+config/local.yaml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.whl
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# SSL certificates
+*.pem
+*.key
+*.crt
