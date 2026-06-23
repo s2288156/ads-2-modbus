@@ -1,0 +1,35 @@
+ads_connection:
+  ams_net_id: "127.0.0.1.1.1"
+  port: 48898
+
+modbus_slave:
+  host: "0.0.0.0"
+  port: 5020
+  slave_id: 1
+
+sync_interval: 1.0
+
+mappings:
+  - ads_var: "GVL.int_value"
+    modbus_type: "holding_registers"
+    modbus_address: 1
+    data_type: "int"
+    description: "Integer test variable"
+
+  - ads_var: "GVL.int16_value"
+    modbus_type: "holding_registers"
+    modbus_address: 2
+    data_type: "int16"
+    description: "Int16 test variable"
+
+  - ads_var: "GVL.uint16_value"
+    modbus_type: "holding_registers"
+    modbus_address: 3
+    data_type: "uint16"
+    description: "Uint16 test variable"
+
+  - ads_var: "GVL.bool_value"
+    modbus_type: "coils"
+    modbus_address: 1
+    data_type: "bool"
+    description: "Boolean test variable"
