@@ -15,6 +15,10 @@ class ModbusSlave:
         self.co_data = [0] * 100
         self.hr_data = [0] * 100
         self.ir_data = [0] * 100
+        self.write_callback = None
+    
+    def set_write_callback(self, callback):
+        self.write_callback = callback
     
     async def data_action(self, *args, **kwargs):
         fc = args[0]
@@ -26,6 +30,46 @@ class ModbusSlave:
             return self.co_data
         elif fc == 2:
             return self.di_data
+        elif fc == 6:
+            addr = args[2]
+            values = args[5]
+            if values is not None and len(values) > 0:
+                value = values[0]
+                if 0 <= addr - 1 < len(self.hr_data):
+                    self.hr_data[addr - 1] = value
+                    logger.info(f"Modbus write: holding_registers[{addr}] = {value}")
+                    if self.write_callback:
+                        await self.write_callback('holding_registers', addr, value)
+        elif fc == 5:
+            addr = args[2]
+            values = args[5]
+            if values is not None and len(values) > 0:
+                value = values[0]
+                if 0 <= addr - 1 < len(self.co_data):
+                    self.co_data[addr - 1] = value
+                    logger.info(f"Modbus write: coils[{addr}] = {value}")
+                    if self.write_callback:
+                        await self.write_callback('coils', addr, value)
+        elif fc == 16:
+            addr = args[2]
+            values = args[5]
+            if values is not None:
+                for i, v in enumerate(values):
+                    if 0 <= addr - 1 + i < len(self.hr_data):
+                        self.hr_data[addr - 1 + i] = v
+                        logger.info(f"Modbus write: holding_registers[{addr + i}] = {v}")
+                        if self.write_callback:
+                            await self.write_callback('holding_registers', addr + i, v)
+        elif fc == 15:
+            addr = args[2]
+            values = args[5]
+            if values is not None:
+                for i, v in enumerate(values):
+                    if 0 <= addr - 1 + i < len(self.co_data):
+                        self.co_data[addr - 1 + i] = v
+                        logger.info(f"Modbus write: coils[{addr + i}] = {v}")
+                        if self.write_callback:
+                            await self.write_callback('coils', addr + i, v)
         return []
     
     def setup_datastore(self, mappings=None):
@@ -61,57 +105,26 @@ class ModbusSlave:
         if register_type == 'discrete_inputs':
             if 0 <= address_idx < len(self.di_data):
                 self.di_data[address_idx] = value
+                if self.device:
+                    self.device.simdata[1][0].values = self.di_data.copy()
                 logger.debug(f"Updated discrete_inputs[{address}] = {value}")
-            else:
-                logger.error(f"Address {address} out of range for discrete_inputs")
         elif register_type == 'coils':
             if 0 <= address_idx < len(self.co_data):
                 self.co_data[address_idx] = value
+                if self.device:
+                    self.device.simdata[0][0].values = self.co_data.copy()
                 logger.debug(f"Updated coils[{address}] = {value}")
-            else:
-                logger.error(f"Address {address} out of range for coils")
         elif register_type == 'holding_registers':
             if 0 <= address_idx < len(self.hr_data):
                 self.hr_data[address_idx] = value
+                if self.device:
+                    self.device.simdata[2][0].values = self.hr_data.copy()
                 logger.debug(f"Updated holding_registers[{address}] = {value}")
-            else:
-                logger.error(f"Address {address} out of range for holding_registers")
         elif register_type == 'input_registers':
             if 0 <= address_idx < len(self.ir_data):
                 self.ir_data[address_idx] = value
+                if self.device:
+                    self.device.simdata[3][0].values = self.ir_data.copy()
                 logger.debug(f"Updated input_registers[{address}] = {value}")
-            else:
-                logger.error(f"Address {address} out of range for input_registers")
         else:
             logger.error(f"Unknown register type: {register_type}")
-    
-    def read_register(self, register_type, address):
-        address_idx = address - 1
-        
-        if register_type == 'discrete_inputs':
-            if 0 <= address_idx < len(self.di_data):
-                return self.di_data[address_idx]
-            else:
-                logger.error(f"Address {address} out of range for discrete_inputs")
-                return None
-        elif register_type == 'coils':
-            if 0 <= address_idx < len(self.co_data):
-                return self.co_data[address_idx]
-            else:
-                logger.error(f"Address {address} out of range for coils")
-                return None
-        elif register_type == 'holding_registers':
-            if 0 <= address_idx < len(self.hr_data):
-                return self.hr_data[address_idx]
-            else:
-                logger.error(f"Address {address} out of range for holding_registers")
-                return None
-        elif register_type == 'input_registers':
-            if 0 <= address_idx < len(self.ir_data):
-                return self.ir_data[address_idx]
-            else:
-                logger.error(f"Address {address} out of range for input_registers")
-                return None
-        else:
-            logger.error(f"Unknown register type: {register_type}")
-            return None

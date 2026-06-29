@@ -86,9 +86,21 @@ class DataMapper:
         self.running = True
         logger.info(f"Data sync service started, interval: {self.sync_interval}s")
         
+        await self.sync_ads_to_modbus()
+        logger.info("Initial sync ADS to Modbus completed")
+        
         while self.running:
-            await self.sync_ads_to_modbus()
             await asyncio.sleep(self.sync_interval)
+    
+    async def on_modbus_write(self, register_type, address, value):
+        for mapping in self.mappings:
+            if mapping['modbus_type'] == register_type and mapping['modbus_address'] == address:
+                try:
+                    ads_value = self.modbus_to_ads_value(value, mapping['data_type'])
+                    self.ads_client.write_by_name(mapping['ads_var'], ads_value)
+                    logger.info(f"Synced Modbus write to ADS: {mapping['ads_var']} = {ads_value}")
+                except Exception as e:
+                    logger.error(f"Failed to sync Modbus write to ADS: {e}")
     
     def stop(self):
         self.running = False

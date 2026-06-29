@@ -69,6 +69,8 @@ async def start_gateway():
 
     sync_interval = config.get('sync_interval', 1.0)
     mapper = DataMapper(ads_client, modbus_slave, config['mappings'], sync_interval)
+    
+    modbus_slave.set_write_callback(mapper.on_modbus_write)
 
     server_task = asyncio.create_task(modbus_slave.start())
     sync_task = asyncio.create_task(mapper.start_sync())

@@ -30,6 +30,6 @@ mappings:
 
   - ads_var: "GVL.bool_value"
     modbus_type: "coils"
-    modbus_address: 1
+    modbus_address: 4
     data_type: "bool"
     description: "Boolean test variable"
