@@ -24,30 +24,6 @@ class ADSHandler(AdvancedHandler):
                 index_offset=0
             ),
             PLCVariable(
-                name='GVL.bool_value_1',
-                value=True,
-                ads_type=constants.ADST_BIT,
-                symbol_type='BOOL',
-                index_group=0x4020,
-                index_offset=1
-            ),
-            PLCVariable(
-                name='GVL.bool_value_2',
-                value=False,
-                ads_type=constants.ADST_BIT,
-                symbol_type='BOOL',
-                index_group=0x4020,
-                index_offset=2
-            ),
-            PLCVariable(
-                name='GVL.bool_value_3',
-                value=True,
-                ads_type=constants.ADST_BIT,
-                symbol_type='BOOL',
-                index_group=0x4020,
-                index_offset=3
-            ),
-            PLCVariable(
                 name='GVL.int_value',
                 value=1234,
                 ads_type=constants.ADST_INT32,
@@ -62,14 +38,6 @@ class ADSHandler(AdvancedHandler):
                 symbol_type='INT',
                 index_group=0x4020,
                 index_offset=20
-            ),
-            PLCVariable(
-                name='GVL.int32_value',
-                value=123456789,
-                ads_type=constants.ADST_INT32,
-                symbol_type='DINT',
-                index_group=0x4020,
-                index_offset=24
             ),
             PLCVariable(
                 name='GVL.float_value',
@@ -102,22 +70,6 @@ class ADSHandler(AdvancedHandler):
                 symbol_type='UDINT',
                 index_group=0x4020,
                 index_offset=40
-            ),
-            PLCVariable(
-                name='GVL.usint_value_1',
-                value=100,
-                ads_type=constants.ADST_UINT8,
-                symbol_type='USINT',
-                index_group=0x4020,
-                index_offset=44
-            ),
-            PLCVariable(
-                name='GVL.uint_value',
-                value=65535,
-                ads_type=constants.ADST_UINT16,
-                symbol_type='UINT',
-                index_group=0x4020,
-                index_offset=46
             ),
         ]
         
