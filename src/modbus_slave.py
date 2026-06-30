@@ -21,55 +21,57 @@ class ModbusSlave:
         self.write_callback = callback
     
     async def data_action(self, *args, **kwargs):
-        fc = args[0]
-        if fc == 3:
-            return self.hr_data
-        elif fc == 4:
-            return self.ir_data
-        elif fc == 1:
-            return self.co_data
-        elif fc == 2:
-            return self.di_data
-        elif fc == 6:
-            addr = args[2]
-            values = args[5]
-            if values is not None and len(values) > 0:
-                value = values[0]
-                if 0 <= addr - 1 < len(self.hr_data):
-                    self.hr_data[addr - 1] = value
-                    logger.info(f"Modbus write: holding_registers[{addr}] = {value}")
+        function_code = args[0]
+        start_address = args[1]
+        address = args[2]
+        count = args[3]
+        current_registers = args[4]
+        set_values = args[5] if len(args) > 5 else kwargs.get('set_values')
+
+        if function_code in (1, 2, 3, 4):
+            # 读请求: SimDevice 用 current_registers 构造响应
+            # 将 self 中的最新值同步到 current_registers
+            offset = address - start_address
+            if function_code == 1:
+                src = self.co_data
+            elif function_code == 2:
+                src = self.di_data
+            elif function_code == 3:
+                src = self.hr_data
+            else:
+                src = self.ir_data
+            for i in range(count):
+                idx = offset + i
+                if 0 <= idx < len(src) and idx < len(current_registers):
+                    current_registers[idx] = src[idx]
+
+        elif function_code in (5, 15) and set_values is not None:
+            # 写线圈: 同时更新 current_registers 和 self.co_data
+            offset = address - start_address
+            for i, v in enumerate(set_values):
+                idx = offset + i
+                val = int(v)
+                if 0 <= idx < len(current_registers):
+                    current_registers[idx] = val
+                if 0 <= address - 1 + i < len(self.co_data):
+                    self.co_data[address - 1 + i] = val
+                    logger.info(f"Modbus write: coils[{address + i}] = {val}")
                     if self.write_callback:
-                        await self.write_callback('holding_registers', addr, value)
-        elif fc == 5:
-            addr = args[2]
-            values = args[5]
-            if values is not None and len(values) > 0:
-                value = values[0]
-                if 0 <= addr - 1 < len(self.co_data):
-                    self.co_data[addr - 1] = value
-                    logger.info(f"Modbus write: coils[{addr}] = {value}")
+                        await self.write_callback('coils', address + i, val)
+
+        elif function_code in (6, 16) and set_values is not None:
+            # 写寄存器: 同时更新 current_registers 和 self.hr_data
+            offset = address - start_address
+            for i, v in enumerate(set_values):
+                idx = offset + i
+                if 0 <= idx < len(current_registers):
+                    current_registers[idx] = v
+                if 0 <= address - 1 + i < len(self.hr_data):
+                    self.hr_data[address - 1 + i] = v
+                    logger.info(f"Modbus write: holding_registers[{address + i}] = {v}")
                     if self.write_callback:
-                        await self.write_callback('coils', addr, value)
-        elif fc == 16:
-            addr = args[2]
-            values = args[5]
-            if values is not None:
-                for i, v in enumerate(values):
-                    if 0 <= addr - 1 + i < len(self.hr_data):
-                        self.hr_data[addr - 1 + i] = v
-                        logger.info(f"Modbus write: holding_registers[{addr + i}] = {v}")
-                        if self.write_callback:
-                            await self.write_callback('holding_registers', addr + i, v)
-        elif fc == 15:
-            addr = args[2]
-            values = args[5]
-            if values is not None:
-                for i, v in enumerate(values):
-                    if 0 <= addr - 1 + i < len(self.co_data):
-                        self.co_data[addr - 1 + i] = v
-                        logger.info(f"Modbus write: coils[{addr + i}] = {v}")
-                        if self.write_callback:
-                            await self.write_callback('coils', addr + i, v)
+                        await self.write_callback('holding_registers', address + i, v)
+
         return []
     
     def setup_datastore(self, mappings=None):

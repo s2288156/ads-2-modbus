@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import logging
 import yaml
@@ -112,22 +113,78 @@ def start_ads_test_server():
     server.start()
     return server
 
+def start_kuka_ads_server():
+    from pyads.testserver import AdsTestServer
+    from pyads.testserver.advanced_handler import AdvancedHandler, PLCVariable
+    from pyads import constants
+
+    class ADSHandler(AdvancedHandler):
+        def __init__(self):
+            super().__init__()
+            self._register_variables()
+
+        def _register_variables(self):
+            variables = [
+                # --- BOOL Proces.* ---
+                PLCVariable(name='Proces.BoxReady_AM46',   value=False, ads_type=constants.ADST_BIT, symbol_type='BOOL', index_group=0x4020, index_offset=6),
+                PLCVariable(name='Proces.BoxReady_AM71',   value=False, ads_type=constants.ADST_BIT, symbol_type='BOOL', index_group=0x4020, index_offset=2),
+                PLCVariable(name='Proces.PG_Full_Ready_cb',value=False, ads_type=constants.ADST_BIT, symbol_type='BOOL', index_group=0x4020, index_offset=17),
+                PLCVariable(name='Proces.BoxReady_AM46_cb',value=False, ads_type=constants.ADST_BIT, symbol_type='BOOL', index_group=0x4020, index_offset=7),
+                PLCVariable(name='Proces.PG_Box_Ready_cb', value=False, ads_type=constants.ADST_BIT, symbol_type='BOOL', index_group=0x4020, index_offset=15),
+                PLCVariable(name='Proces.PG_Full_Ready',   value=False, ads_type=constants.ADST_BIT, symbol_type='BOOL', index_group=0x4020, index_offset=16),
+                PLCVariable(name='Proces.BoxReady_AM72',   value=False, ads_type=constants.ADST_BIT, symbol_type='BOOL', index_group=0x4020, index_offset=4),
+                PLCVariable(name='Proces.BoxReady_AM56',   value=False, ads_type=constants.ADST_BIT, symbol_type='BOOL', index_group=0x4020, index_offset=8),
+                PLCVariable(name='Proces.BoxReady_AM58_cb',value=False, ads_type=constants.ADST_BIT, symbol_type='BOOL', index_group=0x4020, index_offset=11),
+                PLCVariable(name='Proces.BoxReady_AM68_cb',value=False, ads_type=constants.ADST_BIT, symbol_type='BOOL', index_group=0x4020, index_offset=1),
+                PLCVariable(name='Proces.BoxReady_AM59',   value=False, ads_type=constants.ADST_BIT, symbol_type='BOOL', index_group=0x4020, index_offset=12),
+                PLCVariable(name='Proces.BoxReady_AM68',   value=False, ads_type=constants.ADST_BIT, symbol_type='BOOL', index_group=0x4020, index_offset=0),
+                PLCVariable(name='Proces.BoxReady_AM72_cb',value=False, ads_type=constants.ADST_BIT, symbol_type='BOOL', index_group=0x4020, index_offset=5),
+                PLCVariable(name='Proces.BoxReady_AM71_cb',value=False, ads_type=constants.ADST_BIT, symbol_type='BOOL', index_group=0x4020, index_offset=3),
+                PLCVariable(name='Proces.BoxReady_AM58',   value=False, ads_type=constants.ADST_BIT, symbol_type='BOOL', index_group=0x4020, index_offset=10),
+                PLCVariable(name='Proces.BoxReady_AM59_cb',value=False, ads_type=constants.ADST_BIT, symbol_type='BOOL', index_group=0x4020, index_offset=13),
+                PLCVariable(name='Proces.PG_Full_End_cb',  value=False, ads_type=constants.ADST_BIT, symbol_type='BOOL', index_group=0x4020, index_offset=18),
+                PLCVariable(name='Proces.BoxReady_AM56_cb',value=False, ads_type=constants.ADST_BIT, symbol_type='BOOL', index_group=0x4020, index_offset=9),
+                # --- Robot 变量 ---
+                PLCVariable(name='B.robWarningCode_R1',    value=1,     ads_type=constants.ADST_UINT16, symbol_type='UINT',  index_group=0x4020, index_offset=204),
+                PLCVariable(name='B.batteryLevel_R1',      value=1,     ads_type=constants.ADST_UINT8,  symbol_type='USINT', index_group=0x4020, index_offset=200),
+                PLCVariable(name='C.robWarningCode_R2',    value=1,     ads_type=constants.ADST_UINT16, symbol_type='UINT',  index_group=0x4020, index_offset=404),
+                PLCVariable(name='C.batteryLevel_R2',      value=1,     ads_type=constants.ADST_UINT8,  symbol_type='USINT', index_group=0x4020, index_offset=400),
+            ]
+
+            for var in variables:
+                self.add_variable(var)
+                logger.info(f"Registered KUKA variable: {var.name} -> type={var.symbol_type}, value={var.value}")
+
+    handler = ADSHandler()
+    server = AdsTestServer(handler, '127.0.0.1', 48898)
+    logger.info("Starting KUKA ADS Test Server on 127.0.0.1:48898...")
+    logger.info("AMS Net ID: 127.0.0.1.1.1")
+    server.start()
+    return server
+
 async def main():
-    logger.info("启动ADS到Modbus网关")
-    
+    parser = argparse.ArgumentParser(description='ADS to Modbus Gateway')
+    parser.add_argument('--config', default='config/kuka_mapping.yaml', help='Mapping config file')
+    args = parser.parse_args()
+
+    logger.info(f"启动ADS到Modbus网关 (config: {args.config})")
+
     try:
-        config = load_config()
+        config = load_config(args.config)
     except Exception as e:
         logger.error(f"加载配置失败: {e}")
         return
-    
+
     ads_server = None
     ads_client = None
     modbus_slave = None
     mapper = None
-    
+
     try:
-        ads_server = start_ads_test_server()
+        if 'kuka' in args.config:
+            ads_server = start_kuka_ads_server()
+        else:
+            ads_server = start_ads_test_server()
         logger.info("ADS测试服务器启动成功")
         
         time.sleep(1)
