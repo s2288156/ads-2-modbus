@@ -11,11 +11,11 @@ class ModbusSlave:
         self.port = port
         self.slave_id = slave_id
         self.device = None
+        self.write_callback = None
         self.di_data = [0] * 100
         self.co_data = [0] * 100
         self.hr_data = [0] * 100
         self.ir_data = [0] * 100
-        self.write_callback = None
     
     def set_write_callback(self, callback):
         self.write_callback = callback
@@ -128,3 +128,22 @@ class ModbusSlave:
                 logger.debug(f"Updated input_registers[{address}] = {value}")
         else:
             logger.error(f"Unknown register type: {register_type}")
+    
+    def read_register(self, register_type, address):
+        address_idx = address - 1
+        
+        if register_type == 'discrete_inputs':
+            if 0 <= address_idx < len(self.di_data):
+                return self.di_data[address_idx]
+        elif register_type == 'coils':
+            if 0 <= address_idx < len(self.co_data):
+                return self.co_data[address_idx]
+        elif register_type == 'holding_registers':
+            if 0 <= address_idx < len(self.hr_data):
+                return self.hr_data[address_idx]
+        elif register_type == 'input_registers':
+            if 0 <= address_idx < len(self.ir_data):
+                return self.ir_data[address_idx]
+        
+        logger.error(f"Failed to read {register_type}[{address}]")
+        return None

@@ -10,26 +10,44 @@ modbus_slave:
 sync_interval: 1.0
 
 mappings:
+  - ads_var: "GVL.bool_value"
+    modbus_type: "coils"
+    modbus_address: 1
+    data_type: "bool"
+    description: "Boolean test variable"
+
   - ads_var: "GVL.int_value"
     modbus_type: "holding_registers"
     modbus_address: 1
-    data_type: "int"
-    description: "Integer test variable"
+    data_type: "int32"
+    description: "Integer 32-bit test variable (DINT)"
 
   - ads_var: "GVL.int16_value"
     modbus_type: "holding_registers"
-    modbus_address: 2
+    modbus_address: 3
     data_type: "int16"
-    description: "Int16 test variable"
+    description: "Integer 16-bit test variable (INT)"
+
+  - ads_var: "GVL.float_value"
+    modbus_type: "holding_registers"
+    modbus_address: 4
+    data_type: "float"
+    description: "Float test variable (REAL)"
 
   - ads_var: "GVL.uint16_value"
     modbus_type: "holding_registers"
-    modbus_address: 3
+    modbus_address: 6
     data_type: "uint16"
-    description: "Uint16 test variable"
+    description: "Unsigned integer 16-bit test variable (UINT)"
 
-  - ads_var: "GVL.bool_value"
-    modbus_type: "coils"
-    modbus_address: 4
-    data_type: "bool"
-    description: "Boolean test variable"
+  - ads_var: "GVL.usint_value"
+    modbus_type: "holding_registers"
+    modbus_address: 7
+    data_type: "uint8"
+    description: "Unsigned integer 8-bit test variable (USINT)"
+
+  - ads_var: "GVL.uint32_value"
+    modbus_type: "holding_registers"
+    modbus_address: 8
+    data_type: "uint32"
+    description: "Unsigned integer 32-bit test variable (UDINT)"
