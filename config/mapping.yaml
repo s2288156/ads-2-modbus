@@ -1,9 +1,9 @@
 ads_connection:
-  ams_net_id: "127.0.0.1.1.1"   # 部署时替换为真实 PLC AMS Net ID
+  ams_net_id: "127.0.0.1.1.1"   # Replace with real PLC AMS Net ID on deploy
   port: 48898
-  local_ams_net_id: ""           # 可选，本地 AMS Net ID
-  route_ip: ""                   # 可选，PLC IP 地址（用于路由设置）
-  timeout: 5000                  # ADS 操作超时 ms
+  local_ams_net_id: ""           # Optional, local AMS Net ID
+  route_ip: ""                   # Optional, PLC IP address (for route setup)
+  timeout: 5000                  # ADS operation timeout in ms
   reconnect_enabled: true
   reconnect_interval: 1.0
   reconnect_max_interval: 30.0
@@ -32,7 +32,7 @@ logging:
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
 mappings:
-  # --- Coils: Process.BoxReady 信号 ---
+  # --- Coils: Process.BoxReady signals ---
   - ads_var: "Proces.BoxReady_AM68"
     modbus_type: "coils"
     modbus_address: 1
@@ -141,7 +141,7 @@ mappings:
     data_type: "bool"
     description: "PG Full End callback"
 
-  # --- Holding Registers: Robot 变量 ---
+  # --- Holding Registers: Robot variables ---
   - ads_var: "B.batteryLevel_R1"
     modbus_type: "holding_registers"
     modbus_address: 1
