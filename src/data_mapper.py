@@ -11,18 +11,17 @@ class DataMapper:
         self.mappings = mappings
         self.sync_interval = sync_interval
         self.running = False
-    
+        self._dirty_from_modbus = set()
+
     def get_register_count(self, data_type):
         if data_type in ['int32', 'uint32', 'float']:
             return 2
         return 1
-    
+
     def ads_to_modbus_value(self, value, data_type):
         if data_type == 'bool':
             return 1 if value else 0
-        elif data_type == 'int':
-            return int(value)
-        elif data_type == 'int16':
+        elif data_type in ('int', 'int16'):
             return int(value) & 0xFFFF
         elif data_type == 'uint16':
             return int(value) & 0xFFFF
@@ -40,11 +39,11 @@ class DataMapper:
         else:
             logger.warning(f"Unsupported data type: {data_type}")
             return int(value)
-    
+
     def modbus_to_ads_value(self, value, data_type):
         if data_type == 'bool':
             return bool(value)
-        elif data_type == 'int' or data_type == 'int16':
+        elif data_type in ('int', 'int16'):
             return int(value)
         elif data_type == 'uint16':
             return int(value) & 0xFFFF
@@ -55,37 +54,53 @@ class DataMapper:
                 packed = bytes([(value[0] >> 8) & 0xFF, value[0] & 0xFF,
                                (value[1] >> 8) & 0xFF, value[1] & 0xFF])
                 return struct.unpack('!i', packed)[0]
-            else:
-                return int(value)
+            return int(value)
         elif data_type == 'uint32':
             if isinstance(value, list) and len(value) >= 2:
                 packed = bytes([(value[0] >> 8) & 0xFF, value[0] & 0xFF,
                                (value[1] >> 8) & 0xFF, value[1] & 0xFF])
                 return struct.unpack('!I', packed)[0]
-            else:
-                return int(value)
+            return int(value)
         elif data_type == 'float':
             if isinstance(value, list) and len(value) >= 2:
                 packed = bytes([(value[0] >> 8) & 0xFF, value[0] & 0xFF,
                                (value[1] >> 8) & 0xFF, value[1] & 0xFF])
                 return struct.unpack('!f', packed)[0]
-            else:
-                return float(value)
+            return float(value)
         else:
             logger.warning(f"Unsupported data type: {data_type}")
             return value
-    
+
     async def sync_ads_to_modbus(self):
-        for mapping in self.mappings:
+        try:
+            await self.ads_client.ensure_connected()
+        except ConnectionError:
+            logger.warning("ADS not connected, skipping sync")
+            return
+
+        # 批量读取
+        var_names = [m['ads_var'] for m in self.mappings]
+        try:
+            values = self.ads_client.read_list_by_name(var_names)
+        except Exception as e:
+            logger.error(f"Batch ADS read failed: {e}")
+            return
+
+        for i, mapping in enumerate(self.mappings):
+            if i in self._dirty_from_modbus:
+                self._dirty_from_modbus.discard(i)
+                logger.debug(f"Skipping ADS->Modbus sync for {mapping['ads_var']} (dirty from Modbus)")
+                continue
+
             try:
-                ads_value = self.ads_client.read_by_name(mapping['ads_var'])
+                ads_value = values[mapping['ads_var']]
                 modbus_value = self.ads_to_modbus_value(ads_value, mapping['data_type'])
-                
+
                 if isinstance(modbus_value, list):
-                    for i, v in enumerate(modbus_value):
+                    for j, v in enumerate(modbus_value):
                         self.modbus_slave.update_register(
                             mapping['modbus_type'],
-                            mapping['modbus_address'] + i,
+                            mapping['modbus_address'] + j,
                             v
                         )
                 else:
@@ -94,71 +109,99 @@ class DataMapper:
                         mapping['modbus_address'],
                         modbus_value
                     )
-                logger.debug(f"Synced ADS {mapping['ads_var']} ({ads_value}) to Modbus {mapping['modbus_type']}[{mapping['modbus_address']}]")
+                logger.debug(f"Synced ADS {mapping['ads_var']} ({ads_value}) -> Modbus {mapping['modbus_type']}[{mapping['modbus_address']}]")
             except Exception as e:
                 logger.error(f"Failed to sync ADS variable {mapping['ads_var']}: {e}")
-    
+
     async def sync_modbus_to_ads(self):
+        try:
+            await self.ads_client.ensure_connected()
+        except ConnectionError:
+            logger.warning("ADS not connected, skipping Modbus->ADS sync")
+            return
+
         for mapping in self.mappings:
             try:
                 register_count = self.get_register_count(mapping['data_type'])
-                
+
                 if register_count > 1:
                     modbus_values = []
-                    for i in range(register_count):
+                    for j in range(register_count):
                         value = self.modbus_slave.read_register(
                             mapping['modbus_type'],
-                            mapping['modbus_address'] + i
+                            mapping['modbus_address'] + j
                         )
-                        if value is not None:
-                            modbus_values.append(value)
-                        else:
-                            modbus_values.append(0)
+                        modbus_values.append(value if value is not None else 0)
                     modbus_value = modbus_values
                 else:
                     modbus_value = self.modbus_slave.read_register(
                         mapping['modbus_type'],
                         mapping['modbus_address']
                     )
-                
+
                 if modbus_value is not None:
                     ads_value = self.modbus_to_ads_value(modbus_value, mapping['data_type'])
                     self.ads_client.write_by_name(mapping['ads_var'], ads_value)
-                    logger.debug(f"Synced Modbus {mapping['modbus_type']}[{mapping['modbus_address']}] to ADS {mapping['ads_var']} ({ads_value})")
+                    logger.debug(f"Synced Modbus {mapping['modbus_type']}[{mapping['modbus_address']}] -> ADS {mapping['ads_var']} ({ads_value})")
             except Exception as e:
-                logger.error(f"Failed to sync Modbus to ADS variable {mapping['ads_var']}: {e}")
-    
+                logger.error(f"Failed sync Modbus->ADS {mapping['ads_var']}: {e}")
+
     async def start_sync(self):
         self.running = True
         logger.info(f"Data sync service started, interval: {self.sync_interval}s")
-        
+
+        # 等待 ADS 连接成功（后台持续重试）
+        while self.running and not self.ads_client.connected:
+            try:
+                await self.ads_client.ensure_connected()
+            except ConnectionError:
+                await asyncio.sleep(5)
+
+        if not self.running:
+            return
+
+        logger.info("ADS connected, starting data sync")
+
+        # 首次连接成功后启动心跳
+        if not self.ads_client._heartbeat_task or self.ads_client._heartbeat_task.done():
+            self.ads_client.start_heartbeat()
+
         await self.sync_ads_to_modbus()
-        logger.info("Initial sync ADS to Modbus completed")
-        
+        logger.info("Initial sync ADS->Modbus completed")
+
         while self.running:
             await asyncio.sleep(self.sync_interval)
             await self.sync_ads_to_modbus()
-    
+
     async def on_modbus_write(self, register_type, address, value):
-        for mapping in self.mappings:
-            if mapping['modbus_type'] == register_type:
-                register_count = self.get_register_count(mapping['data_type'])
-                
-                if register_count > 1:
-                    start_addr = mapping['modbus_address']
-                    end_addr = start_addr + register_count - 1
-                    if start_addr <= address <= end_addr:
-                        await self.sync_modbus_to_ads()
-                        return
-                else:
-                    if mapping['modbus_address'] == address:
-                        try:
-                            ads_value = self.modbus_to_ads_value(value, mapping['data_type'])
-                            self.ads_client.write_by_name(mapping['ads_var'], ads_value)
-                            logger.info(f"Synced Modbus write to ADS: {mapping['ads_var']} = {ads_value}")
-                        except Exception as e:
-                            logger.error(f"Failed to sync Modbus write to ADS: {e}")
-    
+        for i, mapping in enumerate(self.mappings):
+            if mapping['modbus_type'] != register_type:
+                continue
+
+            register_count = self.get_register_count(mapping['data_type'])
+
+            if register_count > 1:
+                start_addr = mapping['modbus_address']
+                end_addr = start_addr + register_count - 1
+                if start_addr <= address <= end_addr:
+                    self._dirty_from_modbus.add(i)
+                    await self._write_single_to_ads(mapping, register_type, address, value)
+                    return
+            else:
+                if mapping['modbus_address'] == address:
+                    self._dirty_from_modbus.add(i)
+                    await self._write_single_to_ads(mapping, register_type, address, value)
+                    return
+
+    async def _write_single_to_ads(self, mapping, register_type, address, value):
+        try:
+            await self.ads_client.ensure_connected()
+            ads_value = self.modbus_to_ads_value(value, mapping['data_type'])
+            self.ads_client.write_by_name(mapping['ads_var'], ads_value)
+            logger.info(f"Modbus write -> ADS: {mapping['ads_var']} = {ads_value}")
+        except Exception as e:
+            logger.error(f"Failed Modbus->ADS write for {mapping['ads_var']}: {e}")
+
     def stop(self):
         self.running = False
         logger.info("Data sync service stopped")

@@ -130,7 +130,7 @@ def test_modbus_operations(modbus_host, modbus_port, slave_id):
 
 
 async def main():
-    config_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'kuka_mapping.yaml')
+    config_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'mapping.yaml')
     config = load_config(config_path)
 
     ads_server = None

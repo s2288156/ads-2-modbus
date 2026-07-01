@@ -51,7 +51,7 @@ async def start_gateway():
     from src.data_mapper import DataMapper
     import yaml
 
-    with open('config/mapping.yaml', 'r') as f:
+    with open('config/mapping.yaml', 'r') as f:  # noqa: same name, now production config
         config = yaml.safe_load(f)
 
     ads_client = MockADSClient(

@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  ads-gateway:
+    build: .
+    container_name: ads-modbus-gateway
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+    environment:
+      - TZ=Asia/Shanghai
