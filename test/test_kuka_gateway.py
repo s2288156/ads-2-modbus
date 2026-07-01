@@ -170,12 +170,12 @@ async def main():
         sync_task = asyncio.create_task(mapper.start_sync())
 
         # Wait for server to start
-        await asyncio.sleep(1)
+        await asyncio.sleep(2)
         logger.info("Modbus Slave started, running tests...")
 
         # 6. Run Modbus client tests
         passed, failed = test_modbus_operations(
-            config['modbus_slave']['host'],
+            '127.0.0.1',
             config['modbus_slave']['port'],
             config['modbus_slave']['slave_id']
         )

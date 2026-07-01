@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from pymodbus.server import StartAsyncTcpServer
 from pymodbus import ModbusDeviceIdentification
@@ -20,14 +21,15 @@ class ModbusSlave:
     def set_write_callback(self, callback):
         self.write_callback = callback
     
-    async def data_action(self, *args, **kwargs):
-        function_code = args[0]
-        start_address = args[1]
-        address = args[2]
-        count = args[3]
-        current_registers = args[4]
-        set_values = args[5] if len(args) > 5 else kwargs.get('set_values')
-
+    async def data_action(
+        self,
+        function_code: int,
+        start_address: int,
+        address: int,
+        count: int,
+        current_registers: list[int],
+        set_values: list[int] | list[bool] | None,
+    ):
         if function_code in (1, 2, 3, 4):
             # 读请求: SimDevice 用 current_registers 构造响应
             # 将 self 中的最新值同步到 current_registers
@@ -96,10 +98,21 @@ class ModbusSlave:
     
     async def start(self):
         logger.info(f"Starting Modbus TCP server: {self.host}:{self.port}")
-        await StartAsyncTcpServer(
-            context=self.device,
-            address=(self.host, self.port)
-        )
+        import threading
+
+        def _run_server():
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
+            new_loop.run_until_complete(
+                StartAsyncTcpServer(
+                    context=self.device,
+                    address=(self.host, self.port)
+                )
+            )
+
+        t = threading.Thread(target=_run_server, daemon=True)
+        t.start()
+        await asyncio.sleep(1)
     
     def update_register(self, register_type, address, value):
         address_idx = address - 1
