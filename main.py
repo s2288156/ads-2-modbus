@@ -4,6 +4,7 @@ import logging
 import signal
 import sys
 
+import pyads
 from src.ads_client import ADSClient
 from src.modbus_slave import ModbusSlave
 from src.data_mapper import DataMapper
@@ -97,6 +98,18 @@ async def main():
 
     logger.info(f"Starting ADS to Modbus gateway (config: {args.config})")
 
+    # Print local AMS Net ID for debugging
+    ads_cfg = config['ads_connection']
+    configured_local_ams = ads_cfg.get('local_ams_net_id') or '(not set)'
+    try:
+        pyads.open_port()
+        actual_local_ams = pyads.get_local_address()
+        actual_local_ams_id = f"{actual_local_ams.netid}:{actual_local_ams.port}"
+    except Exception as e:
+        logger.warning(f"Failed to get local AMS Net ID: {e}")
+        actual_local_ams_id = "unknown"
+    logger.info(f"Local AMS Net ID - configured: {configured_local_ams}, actual: {actual_local_ams_id}")
+
     shutdown_event = asyncio.Event()
     loop = asyncio.get_running_loop()
 
@@ -115,7 +128,6 @@ async def main():
     shutdown_task = None
 
     try:
-        ads_cfg = config['ads_connection']
         ads_client = ADSClient(
             ams_net_id=ads_cfg['ams_net_id'],
             port=ads_cfg['port'],
