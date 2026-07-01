@@ -10,15 +10,9 @@ import time
 from src.ads_client import ADSClient
 from src.modbus_slave import ModbusSlave
 from src.data_mapper import DataMapper
+from src.log_config import setup_logging
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler()
-    ]
-)
-
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 def load_config(config_path='config/mapping.yaml'):
@@ -26,10 +20,10 @@ def load_config(config_path='config/mapping.yaml'):
         with open(config_path, 'r') as f:
             return yaml.safe_load(f)
     except FileNotFoundError:
-        logger.error(f"配置文件未找到: {config_path}")
+        logger.error(f"Config file not found: {config_path}")
         raise
     except yaml.YAMLError as e:
-        logger.error(f"配置文件解析错误: {e}")
+        logger.error(f"Config file parse error: {e}")
         raise
 
 def start_ads_test_server():
@@ -104,7 +98,7 @@ def start_ads_test_server():
             
             for var in variables:
                 self.add_variable(var)
-                logger.info(f"Registered ADS variable: {var.name} -> type={var.symbol_type}, value={var.value}")
+                logger.info(f"Registered ADS variable: {var.name:<32s} index_offset={var.index_offset:<6d} type={var.symbol_type:<6s} value={int.from_bytes(var.value, 'big') if isinstance(var.value, bytes) else var.value}")
     
     handler = ADSHandler()
     server = AdsTestServer(handler, '127.0.0.1', 48898)
@@ -153,11 +147,11 @@ def start_kuka_ads_server():
 
             for var in variables:
                 self.add_variable(var)
-                logger.info(f"Registered KUKA variable: {var.name} -> type={var.symbol_type}, value={var.value}")
+                logger.info(f"Registered variable: {var.name:<32s} index_offset={var.index_offset:<6d} type={var.symbol_type:<6s} value={int.from_bytes(var.value, 'big') if isinstance(var.value, bytes) else var.value}")
 
     handler = ADSHandler()
     server = AdsTestServer(handler, '127.0.0.1', 48898)
-    logger.info("Starting KUKA ADS Test Server on 127.0.0.1:48898...")
+    logger.info("Starting ADS Test Server on 127.0.0.1:48898...")
     logger.info("AMS Net ID: 127.0.0.1.1.1")
     server.start()
     return server
@@ -167,13 +161,16 @@ async def main():
     parser.add_argument('--config', default='config/kuka_mapping.yaml', help='Mapping config file')
     args = parser.parse_args()
 
-    logger.info(f"启动ADS到Modbus网关 (config: {args.config})")
-
     try:
         config = load_config(args.config)
     except Exception as e:
-        logger.error(f"加载配置失败: {e}")
+        logger.error(f"Failed to load config: {e}")
         return
+
+    setup_logging(config)
+    logger = logging.getLogger(__name__)
+
+    logger.info(f"Starting ADS to Modbus gateway (config: {args.config})")
 
     ads_server = None
     ads_client = None
@@ -185,7 +182,7 @@ async def main():
             ads_server = start_kuka_ads_server()
         else:
             ads_server = start_ads_test_server()
-        logger.info("ADS测试服务器启动成功")
+        logger.info("ADS test server started successfully")
         
         time.sleep(1)
         
@@ -194,7 +191,7 @@ async def main():
             config['ads_connection']['port']
         )
         ads_client.connect()
-        logger.info("ADS客户端连接成功")
+        logger.info("ADS client connected successfully")
         
         modbus_slave = ModbusSlave(
             config['modbus_slave']['host'],
@@ -202,13 +199,13 @@ async def main():
             config['modbus_slave']['slave_id']
         )
         modbus_slave.setup_datastore(config['mappings'])
-        logger.info("Modbus slave数据存储初始化成功")
+        logger.info("Modbus slave datastore initialized successfully")
         
         sync_interval = config.get('sync_interval', 1.0)
         mapper = DataMapper(ads_client, modbus_slave, config['mappings'], sync_interval)
         modbus_slave.set_write_callback(mapper.on_modbus_write)
         
-        logger.info(f"数据同步服务启动，同步间隔: {sync_interval}s")
+        logger.info(f"Data sync service started, interval: {sync_interval}s")
         
         server_task = asyncio.create_task(modbus_slave.start())
         sync_task = asyncio.create_task(mapper.start_sync())
@@ -216,7 +213,7 @@ async def main():
         await asyncio.gather(server_task, sync_task)
         
     except Exception as e:
-        logger.error(f"网关运行异常: {e}", exc_info=True)
+        logger.error(f"Gateway runtime error: {e}", exc_info=True)
     finally:
         if mapper:
             mapper.stop()
@@ -224,10 +221,10 @@ async def main():
             ads_client.disconnect()
         if ads_server:
             ads_server.stop()
-        logger.info("网关已停止")
+        logger.info("Gateway stopped")
 
 def signal_handler(signal_num, frame):
-    logger.info(f"收到信号 {signal_num}，正在停止网关...")
+    logger.info(f"Received signal {signal_num}, stopping gateway...")
     sys.exit(0)
 
 if __name__ == "__main__":
@@ -237,4 +234,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logger.info("用户中断，网关已停止")
+        logger.info("User interrupted, gateway stopped")

@@ -9,6 +9,16 @@ modbus_slave:
 
 sync_interval: 1.0
 
+logging:
+  log_dir: "/home/wu/logs/ecs/ads"
+  log_file: "gateway.log"
+  level: "INFO"
+  max_bytes: 209715200        # 200MB
+  max_days: 7
+  max_total_bytes: 2147483648  # 2GB
+  backup_count: 7
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
 mappings:
   # --- Coils: Proces.BoxReady 信号 ---
   - ads_var: "Proces.BoxReady_AM68"
