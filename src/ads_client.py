@@ -74,25 +74,27 @@ class ADSClient:
         try:
             self.connection = pyads.Connection(self.ams_net_id, self.port)
             self.connection.open()
+            self.connection.set_timeout(self.timeout)
             self._connected = True
             self._heartbeat_failures = 0
-            logger.info(f"ADS connected: {self.ams_net_id}:{self.port}")
+            logger.info(f"ADS connected: {self.ams_net_id}:{self.port} (timeout={self.timeout}ms)")
         except Exception as e:
             logger.warning(f"ADS connection failed with ams_net_id {self.ams_net_id}: {e}")
-            
+
             if self.route_ip and self._fallback_to_route_ip:
                 logger.info(f"Trying direct connection via route_ip: {self.route_ip}:{self.port}")
                 try:
-                    self.connection = pyads.Connection(self.ams_net_id, self.port, 
+                    self.connection = pyads.Connection(self.ams_net_id, self.port,
                                                        ip_address=self.route_ip)
                     self.connection.open()
+                    self.connection.set_timeout(self.timeout)
                     self._connected = True
                     self._heartbeat_failures = 0
-                    logger.info(f"ADS connected via route_ip: {self.route_ip}:{self.port}")
+                    logger.info(f"ADS connected via route_ip: {self.route_ip}:{self.port} (timeout={self.timeout}ms)")
                     return
                 except Exception as e2:
                     logger.error(f"ADS connection via route_ip also failed: {e2}")
-            
+
             self._connected = False
             raise
 
@@ -171,6 +173,7 @@ class ADSClient:
             raise ConnectionError("ADS client not connected")
 
         try:
+            logger.debug(f"Reading ADS 0x{index_group:X}:0x{index_offset:X} (type={plc_datatype})...")
             value = self.connection.read(index_group, index_offset, plc_datatype)
             logger.debug(f"Read ADS 0x{index_group:X}:0x{index_offset:X} = {value}")
             return value
@@ -179,7 +182,7 @@ class ADSClient:
             self._handle_ads_error(e)
             raise
         except Exception as e:
-            logger.error(f"Failed to read ADS 0x{index_group:X}:0x{index_offset:X}: {e}")
+            logger.error(f"Failed to read ADS 0x{index_group:X}:0x{index_offset:X}: {type(e).__name__}: {e}")
             self._connected = False
             raise
 
@@ -200,13 +203,18 @@ class ADSClient:
             raise
 
     def _handle_ads_error(self, e):
-        error_code = getattr(e, 'error_code', None)
-        if error_code == 0x07:
-            logger.warning("ADS timeout detected")
-        elif error_code == 0x0E:
+        err_code = getattr(e, 'err_code', None)
+        if err_code == 1861:
+            logger.warning(f"ADS client timeout elapsed (timeout={self.timeout}ms)")
+        elif err_code == 0x07:
+            logger.warning("ADS protocol timeout detected")
+        elif err_code == 0x0E:
             logger.error("ADS variable not found in PLC")
-        elif error_code in (0x01, 0x02, 0x03):
-            logger.error(f"ADS connection error (code=0x{error_code:02X}), marking disconnected")
+        elif err_code in (0x01, 0x02, 0x03):
+            logger.error(f"ADS connection error (code=0x{err_code:02X}), marking disconnected")
+            self._connected = False
+        elif err_code is not None:
+            logger.error(f"ADS error (code={err_code}), marking disconnected: {e}")
             self._connected = False
 
     @staticmethod
