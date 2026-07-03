@@ -1,8 +1,8 @@
 ads_connection:
-  ams_net_id: "127.0.0.1.1.1"   # Replace with real PLC AMS Net ID on deploy
+  ams_net_id: "192.168.199.80.1.1"   # target ams net id
   port: 48898
-  local_ams_net_id: ""           # Optional, local AMS Net ID
-  route_ip: ""                   # Optional, PLC IP address (for route setup)
+  local_ams_net_id: "172.168.1.121.1.1"           # source ams net id
+  route_ip: "172.168.1.201"      # PLC IP address (for route setup)
   timeout: 5000                  # ADS operation timeout in ms
   reconnect_enabled: true
   reconnect_interval: 1.0

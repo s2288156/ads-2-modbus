@@ -1,13 +1,14 @@
 ads_connection:
-  ams_net_id: "192.168.199.80.1.1"   # target ams net id
+  ams_net_id: "127.0.0.1.1.1"   # Replace with real PLC AMS Net ID on deploy
   port: 48898
-  local_ams_net_id: "172.168.1.121.1.1"           # source ams net id
-  route_ip: "172.168.1.201"      # PLC IP address (for route setup)
+  local_ams_net_id: ""           # Optional, local AMS Net ID
+  route_ip: ""                   # Optional, PLC IP address (for route setup)
   timeout: 5000                  # ADS operation timeout in ms
   reconnect_enabled: true
   reconnect_interval: 1.0
   reconnect_max_interval: 30.0
   reconnect_backoff: 2.0
+  fallback_to_route_ip: true   # 当 ams_net_id 不通时，使用 route_ip 直连
 
 heartbeat:
   interval: 5
@@ -34,133 +35,177 @@ logging:
 mappings:
   # --- Coils: Process.BoxReady signals ---
   - ads_var: "Proces.BoxReady_AM68"
+    index_group: 0x4020
+    index_offset: 0
     modbus_type: "coils"
     modbus_address: 1
     data_type: "bool"
     description: "BoxReady AM68"
 
   - ads_var: "Proces.BoxReady_AM68_cb"
+    index_group: 0x4020
+    index_offset: 1
     modbus_type: "coils"
     modbus_address: 2
     data_type: "bool"
     description: "BoxReady AM68 callback"
 
   - ads_var: "Proces.BoxReady_AM71"
+    index_group: 0x4020
+    index_offset: 2
     modbus_type: "coils"
     modbus_address: 3
     data_type: "bool"
     description: "BoxReady AM71"
 
   - ads_var: "Proces.BoxReady_AM71_cb"
+    index_group: 0x4020
+    index_offset: 3
     modbus_type: "coils"
     modbus_address: 4
     data_type: "bool"
     description: "BoxReady AM71 callback"
 
   - ads_var: "Proces.BoxReady_AM72"
+    index_group: 0x4020
+    index_offset: 4
     modbus_type: "coils"
     modbus_address: 5
     data_type: "bool"
     description: "BoxReady AM72"
 
   - ads_var: "Proces.BoxReady_AM72_cb"
+    index_group: 0x4020
+    index_offset: 5
     modbus_type: "coils"
     modbus_address: 6
     data_type: "bool"
     description: "BoxReady AM72 callback"
 
   - ads_var: "Proces.BoxReady_AM46"
+    index_group: 0x4020
+    index_offset: 6
     modbus_type: "coils"
     modbus_address: 7
     data_type: "bool"
     description: "BoxReady AM46"
 
   - ads_var: "Proces.BoxReady_AM46_cb"
+    index_group: 0x4020
+    index_offset: 7
     modbus_type: "coils"
     modbus_address: 8
     data_type: "bool"
     description: "BoxReady AM46 callback"
 
   - ads_var: "Proces.BoxReady_AM56"
+    index_group: 0x4020
+    index_offset: 8
     modbus_type: "coils"
     modbus_address: 9
     data_type: "bool"
     description: "BoxReady AM56"
 
   - ads_var: "Proces.BoxReady_AM56_cb"
+    index_group: 0x4020
+    index_offset: 9
     modbus_type: "coils"
     modbus_address: 10
     data_type: "bool"
     description: "BoxReady AM56 callback"
 
   - ads_var: "Proces.BoxReady_AM58"
+    index_group: 0x4020
+    index_offset: 10
     modbus_type: "coils"
     modbus_address: 11
     data_type: "bool"
     description: "BoxReady AM58"
 
   - ads_var: "Proces.BoxReady_AM58_cb"
+    index_group: 0x4020
+    index_offset: 11
     modbus_type: "coils"
     modbus_address: 12
     data_type: "bool"
     description: "BoxReady AM58 callback"
 
   - ads_var: "Proces.BoxReady_AM59"
+    index_group: 0x4020
+    index_offset: 12
     modbus_type: "coils"
     modbus_address: 13
     data_type: "bool"
     description: "BoxReady AM59"
 
   - ads_var: "Proces.BoxReady_AM59_cb"
+    index_group: 0x4020
+    index_offset: 13
     modbus_type: "coils"
     modbus_address: 14
     data_type: "bool"
     description: "BoxReady AM59 callback"
 
   - ads_var: "Proces.PG_Box_Ready_cb"
+    index_group: 0x4020
+    index_offset: 15
     modbus_type: "coils"
-    modbus_address: 15
+    modbus_address: 16
     data_type: "bool"
     description: "PG Box Ready callback"
 
   - ads_var: "Proces.PG_Full_Ready"
+    index_group: 0x4020
+    index_offset: 16
     modbus_type: "coils"
-    modbus_address: 16
+    modbus_address: 17
     data_type: "bool"
     description: "PG Full Ready"
 
   - ads_var: "Proces.PG_Full_Ready_cb"
+    index_group: 0x4020
+    index_offset: 17
     modbus_type: "coils"
-    modbus_address: 17
+    modbus_address: 18
     data_type: "bool"
     description: "PG Full Ready callback"
 
   - ads_var: "Proces.PG_Full_End_cb"
+    index_group: 0x4020
+    index_offset: 18
     modbus_type: "coils"
-    modbus_address: 18
+    modbus_address: 19
     data_type: "bool"
     description: "PG Full End callback"
 
   # --- Holding Registers: Robot variables ---
   - ads_var: "B.batteryLevel_R1"
+    index_group: 0x4020
+    index_offset: 200
     modbus_type: "holding_registers"
     modbus_address: 1
     data_type: "uint8"
     description: "Robot 1 battery level"
 
   - ads_var: "B.robWarningCode_R1"
+    index_group: 0x4020
+    index_offset: 204
     modbus_type: "holding_registers"
     modbus_address: 2
     data_type: "uint16"
     description: "Robot 1 warning code"
 
   - ads_var: "C.batteryLevel_R2"
+    index_group: 0x4020
+    index_offset: 400
     modbus_type: "holding_registers"
     modbus_address: 3
     data_type: "uint8"
     description: "Robot 2 battery level"
 
   - ads_var: "C.robWarningCode_R2"
+    index_group: 0x4020
+    index_offset: 404
     modbus_type: "holding_registers"
     modbus_address: 4
     data_type: "uint16"
