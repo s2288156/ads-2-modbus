@@ -63,6 +63,10 @@ def validate_config(config):
         prefix = f"mappings[{i}]"
         if not m.get('ads_var'):
             errors.append(f"{prefix}.ads_var is required")
+        if 'index_group' not in m:
+            errors.append(f"{prefix}.index_group is required")
+        if 'index_offset' not in m:
+            errors.append(f"{prefix}.index_offset is required")
         if not m.get('modbus_type') or m['modbus_type'] not in SUPPORTED_MODBUS_TYPES:
             errors.append(f"{prefix}.modbus_type invalid: {m.get('modbus_type')}")
         if not m.get('modbus_address') and m['modbus_address'] != 0:

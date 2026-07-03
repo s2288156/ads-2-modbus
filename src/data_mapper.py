@@ -78,14 +78,6 @@ class DataMapper:
             logger.warning("ADS not connected, skipping sync")
             return
 
-        # 批量读取
-        var_names = [m['ads_var'] for m in self.mappings]
-        try:
-            values = self.ads_client.read_list_by_name(var_names)
-        except Exception as e:
-            logger.error(f"Batch ADS read failed: {e}")
-            return
-
         for i, mapping in enumerate(self.mappings):
             if i in self._dirty_from_modbus:
                 self._dirty_from_modbus.discard(i)
@@ -93,7 +85,10 @@ class DataMapper:
                 continue
 
             try:
-                ads_value = values[mapping['ads_var']]
+                index_group = mapping['index_group']
+                index_offset = mapping['index_offset']
+                plc_datatype = self.ads_client.get_plc_datatype(mapping['data_type'])
+                ads_value = self.ads_client.read_by_address(index_group, index_offset, plc_datatype)
                 modbus_value = self.ads_to_modbus_value(ads_value, mapping['data_type'])
 
                 if isinstance(modbus_value, list):
@@ -109,7 +104,7 @@ class DataMapper:
                         mapping['modbus_address'],
                         modbus_value
                     )
-                logger.debug(f"Synced ADS {mapping['ads_var']} ({ads_value}) -> Modbus {mapping['modbus_type']}[{mapping['modbus_address']}]")
+                logger.debug(f"Synced ADS 0x{index_group:X}:{index_offset} ({ads_value}) -> Modbus {mapping['modbus_type']}[{mapping['modbus_address']}]")
             except Exception as e:
                 logger.error(f"Failed to sync ADS variable {mapping['ads_var']}: {e}")
 
@@ -141,8 +136,11 @@ class DataMapper:
 
                 if modbus_value is not None:
                     ads_value = self.modbus_to_ads_value(modbus_value, mapping['data_type'])
-                    self.ads_client.write_by_name(mapping['ads_var'], ads_value)
-                    logger.debug(f"Synced Modbus {mapping['modbus_type']}[{mapping['modbus_address']}] -> ADS {mapping['ads_var']} ({ads_value})")
+                    index_group = mapping['index_group']
+                    index_offset = mapping['index_offset']
+                    plc_datatype = self.ads_client.get_plc_datatype(mapping['data_type'])
+                    self.ads_client.write_by_address(index_group, index_offset, ads_value, plc_datatype)
+                    logger.debug(f"Synced Modbus {mapping['modbus_type']}[{mapping['modbus_address']}] -> ADS 0x{index_group:X}:{index_offset} ({ads_value})")
             except Exception as e:
                 logger.error(f"Failed sync Modbus->ADS {mapping['ads_var']}: {e}")
 
@@ -197,8 +195,11 @@ class DataMapper:
         try:
             await self.ads_client.ensure_connected()
             ads_value = self.modbus_to_ads_value(value, mapping['data_type'])
-            self.ads_client.write_by_name(mapping['ads_var'], ads_value)
-            logger.info(f"Modbus write -> ADS: {mapping['ads_var']} = {ads_value}")
+            index_group = mapping['index_group']
+            index_offset = mapping['index_offset']
+            plc_datatype = self.ads_client.get_plc_datatype(mapping['data_type'])
+            self.ads_client.write_by_address(index_group, index_offset, ads_value, plc_datatype)
+            logger.info(f"Modbus write -> ADS: {mapping['ads_var']} = {ads_value} (0x{index_group:X}:{index_offset})")
         except Exception as e:
             logger.error(f"Failed Modbus->ADS write for {mapping['ads_var']}: {e}")
 

@@ -69,11 +69,9 @@ class ADSClient:
                     logger.debug(f"ADS route already exists: {self.ams_net_id}")
                 else:
                     logger.warning(f"Failed to add route: {e}")
-                    # 不再直接 raise，允许后续尝试直连
 
     def _open_connection(self):
         try:
-            # 尝试使用配置的 ams_net_id 连接
             self.connection = pyads.Connection(self.ams_net_id, self.port)
             self.connection.open()
             self._connected = True
@@ -82,11 +80,9 @@ class ADSClient:
         except Exception as e:
             logger.warning(f"ADS connection failed with ams_net_id {self.ams_net_id}: {e}")
             
-            # 如果配置了 route_ip 且启用了回退，尝试使用 route_ip 直连
             if self.route_ip and self._fallback_to_route_ip:
                 logger.info(f"Trying direct connection via route_ip: {self.route_ip}:{self.port}")
                 try:
-                    # 使用 route_ip 作为远程 IP，尝试直连
                     self.connection = pyads.Connection(self.ams_net_id, self.port, 
                                                        ip_address=self.route_ip)
                     self.connection.open()
@@ -157,7 +153,6 @@ class ADSClient:
             try:
                 if not self._connected or not self.connection:
                     continue
-                # 使用 read_device_info 作为轻量级心跳
                 self.connection.read_device_info()
                 self._heartbeat_failures = 0
                 logger.debug("ADS heartbeat OK")
@@ -171,77 +166,46 @@ class ADSClient:
 
     # ---- 读写操作 ----
 
-    def read_by_name(self, var_name, plc_datatype=None):
+    def read_by_address(self, index_group, index_offset, plc_datatype=None):
         if not self._connected:
             raise ConnectionError("ADS client not connected")
 
         try:
-            value = self.connection.read_by_name(var_name, plc_datatype)
-            logger.debug(f"Read ADS variable {var_name} = {value}")
+            value = self.connection.read(index_group, index_offset, plc_datatype)
+            logger.debug(f"Read ADS 0x{index_group:X}:0x{index_offset:X} = {value}")
             return value
         except pyads.ADSError as e:
-            logger.error(f"ADS error reading {var_name}: {e}")
+            logger.error(f"ADS error reading 0x{index_group:X}:0x{index_offset:X}: {e}")
             self._handle_ads_error(e)
             raise
         except Exception as e:
-            logger.error(f"Failed to read ADS variable {var_name}: {e}")
+            logger.error(f"Failed to read ADS 0x{index_group:X}:0x{index_offset:X}: {e}")
             self._connected = False
             raise
 
-    def write_by_name(self, var_name, value, plc_datatype=None):
+    def write_by_address(self, index_group, index_offset, value, plc_datatype=None):
         if not self._connected:
             raise ConnectionError("ADS client not connected")
 
         try:
-            self.connection.write_by_name(var_name, value, plc_datatype)
-            logger.debug(f"Wrote ADS variable {var_name} = {value}")
+            self.connection.write(index_group, index_offset, value, plc_datatype)
+            logger.debug(f"Wrote ADS 0x{index_group:X}:0x{index_offset:X} = {value}")
         except pyads.ADSError as e:
-            logger.error(f"ADS error writing {var_name}: {e}")
+            logger.error(f"ADS error writing 0x{index_group:X}:0x{index_offset:X}: {e}")
             self._handle_ads_error(e)
             raise
         except Exception as e:
-            logger.error(f"Failed to write ADS variable {var_name}: {e}")
-            self._connected = False
-            raise
-
-    def read_list_by_name(self, var_names):
-        if not self._connected:
-            raise ConnectionError("ADS client not connected")
-        try:
-            values = self.connection.read_list_by_name(var_names)
-            logger.debug(f"Batch read {len(var_names)} ADS variables")
-            return values
-        except pyads.ADSError as e:
-            logger.error(f"ADS batch read error: {e}")
-            self._handle_ads_error(e)
-            raise
-        except Exception as e:
-            logger.error(f"Failed batch read: {e}")
-            self._connected = False
-            raise
-
-    def write_list_by_name(self, values_dict):
-        if not self._connected:
-            raise ConnectionError("ADS client not connected")
-        try:
-            self.connection.write_list_by_name(values_dict)
-            logger.debug(f"Batch write {len(values_dict)} ADS variables")
-        except pyads.ADSError as e:
-            logger.error(f"ADS batch write error: {e}")
-            self._handle_ads_error(e)
-            raise
-        except Exception as e:
-            logger.error(f"Failed batch write: {e}")
+            logger.error(f"Failed to write ADS 0x{index_group:X}:0x{index_offset:X}: {e}")
             self._connected = False
             raise
 
     def _handle_ads_error(self, e):
         error_code = getattr(e, 'error_code', None)
-        if error_code == 0x07:  # ADS error: timeout
+        if error_code == 0x07:
             logger.warning("ADS timeout detected")
-        elif error_code == 0x0E:  # Symbol not found
+        elif error_code == 0x0E:
             logger.error("ADS variable not found in PLC")
-        elif error_code in (0x01, 0x02, 0x03):  # general / target not found / port not found
+        elif error_code in (0x01, 0x02, 0x03):
             logger.error(f"ADS connection error (code=0x{error_code:02X}), marking disconnected")
             self._connected = False
 
