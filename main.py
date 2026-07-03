@@ -140,6 +140,7 @@ async def main():
             reconnect_backoff=ads_cfg.get('reconnect_backoff', 2.0),
             heartbeat_interval=config.get('heartbeat', {}).get('interval', 5),
             heartbeat_max_failures=config.get('heartbeat', {}).get('max_failures', 3),
+            fallback_to_route_ip=ads_cfg.get('fallback_to_route_ip', True),
         )
         # 不做同步连接，Modbus 服务先启动，ADS 在后台持续重试
         logger.info("ADS not connected yet, will retry in background")

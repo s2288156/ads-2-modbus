@@ -22,7 +22,8 @@ class ADSClient:
     def __init__(self, ams_net_id, port, local_ams_net_id=None, route_ip=None,
                  timeout=5000, reconnect_enabled=True, reconnect_interval=1.0,
                  reconnect_max_interval=30.0, reconnect_backoff=2.0,
-                 heartbeat_interval=5.0, heartbeat_max_failures=3):
+                 heartbeat_interval=5.0, heartbeat_max_failures=3,
+                 fallback_to_route_ip=True):
         self.ams_net_id = ams_net_id
         self.port = port
         self.local_ams_net_id = local_ams_net_id
@@ -30,6 +31,7 @@ class ADSClient:
         self.timeout = timeout
         self.connection = None
         self._connected = False
+        self._fallback_to_route_ip = fallback_to_route_ip
 
         self._reconnect_enabled = reconnect_enabled
         self._reconnect_interval = reconnect_interval
@@ -66,18 +68,36 @@ class ADSClient:
                 if "already exists" in str(e):
                     logger.debug(f"ADS route already exists: {self.ams_net_id}")
                 else:
-                    raise
+                    logger.warning(f"Failed to add route: {e}")
+                    # 不再直接 raise，允许后续尝试直连
 
     def _open_connection(self):
         try:
+            # 尝试使用配置的 ams_net_id 连接
             self.connection = pyads.Connection(self.ams_net_id, self.port)
             self.connection.open()
             self._connected = True
             self._heartbeat_failures = 0
             logger.info(f"ADS connected: {self.ams_net_id}:{self.port}")
         except Exception as e:
+            logger.warning(f"ADS connection failed with ams_net_id {self.ams_net_id}: {e}")
+            
+            # 如果配置了 route_ip 且启用了回退，尝试使用 route_ip 直连
+            if self.route_ip and self._fallback_to_route_ip:
+                logger.info(f"Trying direct connection via route_ip: {self.route_ip}:{self.port}")
+                try:
+                    # 使用 route_ip 作为远程 IP，尝试直连
+                    self.connection = pyads.Connection(self.ams_net_id, self.port, 
+                                                       ip_address=self.route_ip)
+                    self.connection.open()
+                    self._connected = True
+                    self._heartbeat_failures = 0
+                    logger.info(f"ADS connected via route_ip: {self.route_ip}:{self.port}")
+                    return
+                except Exception as e2:
+                    logger.error(f"ADS connection via route_ip also failed: {e2}")
+            
             self._connected = False
-            logger.error(f"ADS connection failed: {e}")
             raise
 
     def disconnect(self):
@@ -108,7 +128,8 @@ class ADSClient:
         interval = self._reconnect_interval
         while True:
             try:
-                logger.info(f"ADS reconnecting to {self.ams_net_id}:{self.port}...")
+                route_info = f" via {self.route_ip}" if self.route_ip else ""
+                logger.info(f"ADS reconnecting to {self.ams_net_id}:{self.port}{route_info}...")
                 self._open_connection()
                 logger.info("ADS reconnected successfully")
                 return

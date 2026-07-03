@@ -8,6 +8,7 @@ ads_connection:
   reconnect_interval: 1.0
   reconnect_max_interval: 30.0
   reconnect_backoff: 2.0
+  fallback_to_route_ip: true   # 当 ams_net_id 不通时，使用 route_ip 直连
 
 heartbeat:
   interval: 5
