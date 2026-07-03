@@ -1,6 +1,6 @@
 ads_connection:
   ams_net_id: "192.168.199.80.1.1"   # target ams net id
-  port: 48898
+  port: 851                  # PLC Runtime 1 port (NOT 48898 which is ADS Router)
   local_ams_net_id: "172.168.1.121.1.1"           # source ams net id
   route_ip: "172.168.1.201"      # PLC IP address (for route setup)
   timeout: 5000                  # ADS operation timeout in ms
