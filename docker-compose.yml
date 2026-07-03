@@ -1,8 +1,7 @@
-version: '3.8'
-
 services:
   ads-gateway:
     build: .
+    image: ads-modbus-gateway:${TAG:-latest}
     container_name: ads-modbus-gateway
     restart: unless-stopped
     network_mode: host

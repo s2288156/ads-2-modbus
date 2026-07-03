@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project is an ADS (Automation Device Specification) to Modbus TCP gateway service. It synchronizes ADS variables from Beckhoff/TwinCAT PLCs to Modbus registers in real time, supporting bidirectional data flow.
+ADS (Automation Device Specification) to Modbus TCP gateway service. Synchronizes ADS variables from Beckhoff/TwinCAT PLCs to Modbus registers in real time, with bidirectional data flow.
 
 ## Prerequisites
 
@@ -11,98 +11,78 @@ This project is an ADS (Automation Device Specification) to Modbus TCP gateway s
 
 ## Configuration
 
-The configuration file is located at `config/mapping.yaml`. It is mounted read-only into the container via Docker Compose.
-
-### Full Configuration Structure
+Config file at `config/mapping.yaml`, mounted read-only into the container.
 
 ```yaml
-# ADS connection settings
 ads_connection:
   ams_net_id: "127.0.0.1.1.1"   # PLC AMS Net ID (required)
   port: 48898                    # ADS port (default: 48898)
   local_ams_net_id: ""           # Local AMS Net ID (optional)
-  route_ip: ""                   # PLC IP address (optional, for route setup)
-  timeout: 5000                  # ADS operation timeout in ms
+  route_ip: ""                   # PLC IP for route setup (optional)
+  timeout: 5000                  # ADS operation timeout (ms)
   reconnect_enabled: true        # Auto-reconnect on disconnect
   reconnect_interval: 1.0        # Initial reconnect interval (seconds)
   reconnect_max_interval: 30.0   # Max reconnect interval (seconds)
   reconnect_backoff: 2.0         # Backoff multiplier
 
-# Heartbeat settings
 heartbeat:
   interval: 5                    # Heartbeat check interval (seconds)
-  max_failures: 3                # Max consecutive failures before reconnect
+  max_failures: 3                # Max failures before reconnect
 
-# Modbus slave settings
 modbus_slave:
-  host: "0.0.0.0"               # Listen address (always 0.0.0.0 inside container)
+  host: "0.0.0.0"               # Listen address (always 0.0.0.0 in container)
   port: 5020                     # Modbus TCP port
   slave_id: 1                    # Modbus slave ID
   max_connections: 10            # Max concurrent connections
 
-# Data sync interval (seconds)
-sync_interval: 0.5
+sync_interval: 0.5               # Data sync interval (seconds)
 
-# Logging settings
 logging:
-  log_dir: "/app/logs"           # Log directory (container path, mounted to host via volume)
-  log_file: "gateway.log"        # Log filename
-  level: "INFO"                  # Log level (DEBUG/INFO/WARNING/ERROR)
-  max_bytes: 209715200           # Max single log file size (200MB)
-  max_days: 7                    # Log retention days
+  log_dir: "/app/logs"
+  log_file: "gateway.log"
+  level: "INFO"                  # DEBUG/INFO/WARNING/ERROR
+  max_bytes: 209715200           # Max single log file (200MB)
+  max_days: 7
   max_total_bytes: 2147483648    # Total log size limit (2GB)
-  backup_count: 7                # Log backup count
-  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  backup_count: 7
 
-# Variable mappings
 mappings:
-  - ads_var: "Proces.BoxReady_AM68"     # ADS variable name (full path in PLC)
+  - ads_var: "Proces.BoxReady_AM68"     # ADS variable name (full PLC path)
     modbus_type: "coils"                 # Modbus register type
     modbus_address: 1                    # Modbus start address (1-based)
     data_type: "bool"                    # Data type
     description: "BoxReady AM68"         # Description (optional)
 ```
 
-### Field Reference
-
-#### `ads_connection` — ADS Connection Parameters
-
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `ams_net_id` | string | yes | — | PLC AMS Net ID, format: `x.x.x.x.x.x` (6 dot-separated numeric segments) |
-| `port` | int | no | 48898 | ADS communication port |
-| `local_ams_net_id` | string | no | `""` | Local AMS Net ID for setting local address |
-| `route_ip` | string | no | `""` | PLC IP address for automatic ADS route setup |
-| `timeout` | int | no | 5000 | Single ADS operation timeout (ms) |
-| `reconnect_enabled` | bool | no | true | Enable auto-reconnect on disconnect |
-| `reconnect_interval` | float | no | 1.0 | Initial reconnect wait time (seconds) |
-| `reconnect_max_interval` | float | no | 30.0 | Maximum reconnect wait time (seconds) |
-| `reconnect_backoff` | float | no | 2.0 | Backoff multiplier (wait time doubles on each failure) |
-
-#### `heartbeat` — Heartbeat Detection
+### `ads_connection` Fields
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `interval` | int | 5 | Heartbeat check interval (seconds) |
-| `max_failures` | int | 3 | Max consecutive failures before marking disconnected and triggering reconnect |
+| `ams_net_id` | string | — | PLC AMS Net ID, format `x.x.x.x.x.x` (required) |
+| `port` | int | 48898 | ADS communication port |
+| `local_ams_net_id` | string | `""` | Local AMS Net ID |
+| `route_ip` | string | `""` | PLC IP for automatic ADS route setup |
+| `timeout` | int | 5000 | Single ADS operation timeout (ms) |
+| `reconnect_enabled` | bool | true | Auto-reconnect on disconnect |
+| `reconnect_interval` | float | 1.0 | Initial reconnect wait (seconds) |
+| `reconnect_max_interval` | float | 30.0 | Maximum reconnect wait (seconds) |
+| `reconnect_backoff` | float | 2.0 | Backoff multiplier |
 
-#### `modbus_slave` — Modbus TCP Slave
+### `modbus_slave` Fields
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `host` | string | yes | — | Listen IP address, always `0.0.0.0` inside container |
-| `port` | int | no | 502 | Modbus TCP port |
-| `slave_id` | int | no | 1 | Modbus slave ID |
-| `max_connections` | int | no | 10 | Max concurrent Modbus client connections |
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `host` | string | — | Listen IP, always `0.0.0.0` in container (required) |
+| `port` | int | 502 | Modbus TCP port |
+| `slave_id` | int | 1 | Modbus slave ID |
+| `max_connections` | int | 10 | Max concurrent connections |
 
-#### `mappings` — Variable Mapping Table
-
-Each mapping entry:
+### `mappings` Fields
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `ads_var` | string | yes | ADS variable name (full path in PLC) |
-| `modbus_type` | string | yes | Modbus register type: `coils`, `discrete_inputs`, `holding_registers`, `input_registers` |
+| `ads_var` | string | yes | ADS variable name (full PLC path) |
+| `modbus_type` | string | yes | `coils` / `discrete_inputs` / `holding_registers` / `input_registers` |
 | `modbus_address` | int | yes | Modbus start address (1-based) |
 | `data_type` | string | yes | Data type (see table below) |
 | `description` | string | no | Variable description |
@@ -116,25 +96,22 @@ Each mapping entry:
 | `uint8` | PLCTYPE_USINT | 1 (register) | Unsigned 8-bit integer |
 | `int16` | PLCTYPE_INT | 1 (register) | Signed 16-bit integer |
 | `uint16` | PLCTYPE_UINT | 1 (register) | Unsigned 16-bit integer |
-| `int32` | PLCTYPE_DINT | 2 (registers) | Signed 32-bit integer, occupies 2 consecutive registers |
-| `uint32` | PLCTYPE_UDINT | 2 (registers) | Unsigned 32-bit integer, occupies 2 consecutive registers |
-| `float` | PLCTYPE_REAL | 2 (registers) | Single-precision float, occupies 2 consecutive registers |
+| `int32` | PLCTYPE_DINT | 2 (registers) | Signed 32-bit integer, 2 consecutive registers |
+| `uint32` | PLCTYPE_UDINT | 2 (registers) | Unsigned 32-bit integer, 2 consecutive registers |
+| `float` | PLCTYPE_REAL | 2 (registers) | Single-precision float, 2 consecutive registers |
 | `string` | PLCTYPE_STRING | 1 (register) | String |
 
-**Address Allocation Notes:**
-- `int32`, `uint32`, and `float` types each occupy 2 consecutive registers — leave room when assigning addresses.
-- Example: address 1 is `uint16`, address 2 is `int32` — both address 2 and 3 are consumed; next available address is 4.
-- `coils` and `holding_registers` have independent address spaces and can reuse the same numbers.
+> `int32`/`uint32`/`float` each occupy 2 consecutive registers — leave room when assigning addresses. `coils` and `holding_registers` have independent address spaces.
 
-## Docker Compose Deployment
+## Deployment
 
 ### Directory Layout
 
 ```
 project-root/
 ├── config/
-│   └── mapping.yaml          # Config file (edited on host, mounted read-only)
-├── logs/                      # Log output directory (auto-created)
+│   └── mapping.yaml
+├── logs/
 ├── docker-compose.yml
 ├── Dockerfile
 ├── main.py
@@ -145,110 +122,66 @@ project-root/
 ### Deployment Steps
 
 ```bash
-# 1. Build image
-docker-compose build
+# Build image (with version tag)
+TAG=1.0.1 docker compose build
 
-# 2. Start service (detached)
-docker-compose up -d
+# Start service (detached)
+docker compose up -d
 
-# 3. View live logs
-docker-compose logs -f
+# View live logs
+docker compose logs -f
 
-# 4. Stop service
-docker-compose down
+# Stop service
+docker compose down
 ```
 
-### docker-compose.yml Overview
+### docker-compose.yml
 
 ```yaml
 services:
   ads-gateway:
     build: .
+    image: ads-modbus-gateway:${TAG:-latest}
     container_name: ads-modbus-gateway
     restart: unless-stopped
     network_mode: host
     volumes:
-      - ./config:/app/config:ro    # Config file mounted read-only
-      - ./logs:/app/logs            # Log directory mounted
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
     environment:
       - TZ=Asia/Shanghai
 ```
 
 Key settings:
 - **`network_mode: host`** — Container shares the host's network stack. Modbus port is directly accessible without port mapping.
-- **`./config:/app/config:ro`** — Config file is mounted read-only. To change config, edit on the host and restart the container.
-- **`restart: unless-stopped`** — Container auto-restarts on crash or host reboot.
+- **`./config:/app/config:ro`** — Config file mounted read-only. Edit on host and restart container to apply changes.
+- **`restart: unless-stopped`** — Auto-restarts on crash or host reboot.
 
-## Startup Notes
+## Notes
 
-### 1. ADS Port Dependency
-
-- The service does **not** require an immediate ADS connection at startup. The Modbus server starts first; ADS connects and retries in the background.
-- Ensure the PLC has its ADS port open (default 48898) and the host machine can reach it over the network.
-- If using route mode (`route_ip` configured), ensure TwinCAT ADS Router is installed on the host or `pyads` can add the route automatically.
-
-### 2. Port Conflicts
-
-- With `network_mode: host`, the Modbus port (default 5020) binds directly to the host and must not be occupied by other services.
-- Check availability: `ss -tlnp | grep 5020`
-
-### 3. Firewall Configuration
-
-```bash
-# Open Modbus port
-sudo firewall-cmd --permanent --add-port=5020/tcp
-sudo firewall-cmd --reload
-
-# Or with iptables
-sudo iptables -A INPUT -p tcp --dport 5020 -j ACCEPT
-```
-
-### 4. Log Directory
-
-Logs are mounted to the host's `./logs` directory. Ensure it exists and is writable:
-
-```bash
-mkdir -p ./logs
-```
-
-### 5. Graceful Shutdown
-
-`docker-compose down` sends `SIGTERM` to the container. The service stops data sync, Modbus server, and ADS connection in sequence.
-
-### 6. Data Synchronization
-
-- By default, all mapped variables are read from ADS and synced to Modbus every 0.5 seconds (ADS -> Modbus).
-- Values written by Modbus clients are immediately written back to ADS (Modbus -> ADS).
-- When Modbus-side writes a value, that variable is skipped in the next ADS->Modbus sync cycle to avoid overwriting.
-
-### 7. Reconnection Strategy
-
-- ADS uses exponential backoff for reconnection: initial interval 1s, max 30s.
-- Heartbeat runs every 5 seconds; 3 consecutive failures trigger reconnection.
-- During reconnection, the Modbus service continues running — external clients can still read the last synchronized values.
-
-### 8. Modbus Write Restrictions
-
-- `coils` — writable (function codes 5/15)
-- `holding_registers` — writable (function codes 6/16)
-- `discrete_inputs` and `input_registers` — read-only, writes are not supported
+1. **ADS Connection**: Service starts without requiring immediate ADS connection. Modbus starts first; ADS connects and retries in background. Ensure PLC ADS port is reachable.
+2. **Port Conflicts**: With host networking, Modbus port (default 5020) binds directly to host. Check availability: `ss -tlnp | grep 5020`
+3. **Firewall**: Open Modbus port, e.g. `sudo firewall-cmd --permanent --add-port=5020/tcp && sudo firewall-cmd --reload`
+4. **Log Directory**: Ensure `./logs` exists and is writable: `mkdir -p ./logs`
+5. **Graceful Shutdown**: `docker-compose down` sends SIGTERM; service stops data sync, Modbus server, and ADS connection in sequence.
+6. **Data Sync**: Default 0.5s interval, reads from ADS and syncs to Modbus (ADS→Modbus). Modbus writes are immediately sent back to ADS (Modbus→ADS); that variable is skipped in the next sync cycle.
+7. **Reconnection**: Exponential backoff (initial 1s, max 30s). Heartbeat every 5s; 3 consecutive failures trigger reconnect. Modbus service remains available during reconnection.
+8. **Write Access**: `coils` and `holding_registers` support writes. `discrete_inputs` and `input_registers` are read-only.
 
 ## Troubleshooting
 
 | Symptom | Likely Cause | Solution |
 |---------|-------------|----------|
-| "ADS connection failed" in logs | PLC unreachable or port not open | Check network from host to PLC, verify ADS port is open |
-| Modbus clients read all zeros | ADS not connected or wrong variable name | Check logs for ADS connection status, verify `ads_var` names |
-| Container keeps restarting | Config error or port in use | `docker-compose logs` for errors, `ss -tlnp | grep 5020` for port |
-| "Config validation failed" in logs | Invalid YAML or missing required fields | Validate `config/mapping.yaml` syntax and required fields |
-| Data updates are slow | `sync_interval` too large | Reduce `sync_interval` value (unit: seconds) |
-
-### Viewing Logs
+| "ADS connection failed" in logs | PLC unreachable or port not open | Check network, verify ADS port is open |
+| Modbus clients read all zeros | ADS not connected or wrong variable name | Check logs for ADS status, verify `ads_var` names |
+| Container keeps restarting | Config error or port in use | `docker compose logs` for errors |
+| "Config validation failed" in logs | Invalid YAML or missing required fields | Validate `config/mapping.yaml` |
+| Data updates are slow | `sync_interval` too large | Reduce `sync_interval` value |
 
 ```bash
 # Live logs
-docker-compose logs -f --tail=100
+docker compose logs -f --tail=100
 
-# Or view the log file on the host directly
+# Or view log file directly on host
 tail -f ./logs/gateway.log
 ```
