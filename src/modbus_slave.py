@@ -32,30 +32,37 @@ class ModbusSlave:
         current_registers: list[int],
         set_values: list[int] | list[bool] | None,
     ):
-        if function_code in (1, 2, 3, 4):
+        if function_code in (1, 2):
+            # Coils / Discrete inputs: pymodbus passes bit-level addresses,
+            # must convert to register offset and pack bits correctly.
+            src = self.co_data if function_code == 1 else self.di_data
+            reg_start = int(address / 16) - start_address
+            for i in range(count):
+                reg_idx = reg_start + i
+                if 0 <= reg_idx < len(current_registers):
+                    reg_val = 0
+                    for bit in range(16):
+                        bit_addr = (start_address + reg_idx) * 16 + bit
+                        data_idx = bit_addr - 1  # 1-based Modbus address -> 0-based array
+                        if 0 <= data_idx < len(src) and src[data_idx]:
+                            reg_val |= (1 << bit)
+                    current_registers[reg_idx] = reg_val
+
+        elif function_code in (3, 4):
+            # Holding / Input registers: register-level addressing, straightforward copy.
             offset = address - start_address
-            if function_code == 1:
-                src = self.co_data
-            elif function_code == 2:
-                src = self.di_data
-            elif function_code == 3:
-                src = self.hr_data
-            else:
-                src = self.ir_data
+            src = self.hr_data if function_code == 3 else self.ir_data
             for i in range(count):
                 idx = offset + i
                 if 0 <= idx < len(src) and idx < len(current_registers):
                     current_registers[idx] = src[idx]
 
         elif function_code in (5, 15) and set_values is not None:
-            offset = address - start_address
             for i, v in enumerate(set_values):
-                idx = offset + i
                 val = int(v)
-                if 0 <= idx < len(current_registers):
-                    current_registers[idx] = val
-                if 0 <= address - 1 + i < len(self.co_data):
-                    self.co_data[address - 1 + i] = val
+                data_idx = address - 1 + i
+                if 0 <= data_idx < len(self.co_data):
+                    self.co_data[data_idx] = val
                     logger.info(f"Modbus write: coils[{address + i}] = {val}")
                     if self.write_callback:
                         await self.write_callback('coils', address + i, val)

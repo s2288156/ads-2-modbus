@@ -12,6 +12,7 @@ class DataMapper:
         self.sync_interval = sync_interval
         self.running = False
         self._dirty_from_modbus = set()
+        self._last_ads_values = {}  # cache for change detection
 
     def get_register_count(self, data_type):
         if data_type in ['int32', 'uint32', 'float']:
@@ -81,7 +82,6 @@ class DataMapper:
         for i, mapping in enumerate(self.mappings):
             if i in self._dirty_from_modbus:
                 self._dirty_from_modbus.discard(i)
-                logger.debug(f"Skipping ADS->Modbus sync for {mapping['ads_var']} (dirty from Modbus)")
                 continue
 
             try:
@@ -90,6 +90,13 @@ class DataMapper:
                 plc_datatype = self.ads_client.get_plc_datatype(mapping['data_type'])
                 ads_value = self.ads_client.read_by_address(index_group, index_offset, plc_datatype)
                 modbus_value = self.ads_to_modbus_value(ads_value, mapping['data_type'])
+
+                # change detection
+                prev = self._last_ads_values.get(i)
+                if ads_value != prev:
+                    self._last_ads_values[i] = ads_value
+                    if prev is not None:
+                        logger.info(f"ADS changed: {mapping['ads_var']} 0x{index_group:X}:{index_offset} {prev} -> {ads_value}")
 
                 if isinstance(modbus_value, list):
                     for j, v in enumerate(modbus_value):
@@ -104,7 +111,6 @@ class DataMapper:
                         mapping['modbus_address'],
                         modbus_value
                     )
-                logger.debug(f"Synced ADS 0x{index_group:X}:{index_offset} ({ads_value}) -> Modbus {mapping['modbus_type']}[{mapping['modbus_address']}]")
             except Exception as e:
                 logger.error(f"Failed to sync ADS variable {mapping['ads_var']}: {e}")
 

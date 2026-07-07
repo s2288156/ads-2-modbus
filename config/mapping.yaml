@@ -178,6 +178,14 @@ mappings:
     data_type: "bool"
     description: "PG Full End callback"
 
+  - ads_var: "lifebit"
+    index_group: 0x4020
+    index_offset: 19
+    modbus_type: "coils"
+    modbus_address: 20
+    data_type: "bool"
+    description: "PG Full End callback"
+
   # --- Holding Registers: Robot variables ---
   - ads_var: "B.batteryLevel_R1"
     index_group: 0x4020
