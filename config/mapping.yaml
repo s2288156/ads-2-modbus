@@ -1,8 +1,8 @@
 ads_connection:
-  ams_net_id: "127.0.0.1.1.1"   # target ams net id
-  port: 854                  # PLC Runtime 1 port (NOT 48898 which is ADS Router)
+  ams_net_id: "127.0.0.1.1.1"   # target ams net id (matches test server fake AMS)
+  port: 48898                  # ADS Test Server port
   local_ams_net_id: "127.0.0.1.1.2"           # source ams net id
-  route_ip: ""      # PLC IP address (for route setup)
+  route_ip: "127.0.0.1"       # direct connection IP (test server bind address)
   timeout: 5000                  # ADS operation timeout in ms
   reconnect_enabled: true
   reconnect_interval: 1.0
@@ -23,7 +23,7 @@ modbus_slave:
 sync_interval: 0.5
 
 logging:
-  log_dir: "/home/wu/logs/ecs/ads"
+  log_dir: "/tmp/logs/ads/"
   log_file: "gateway.log"
   level: "INFO"
   max_bytes: 209715200        # 200MB
@@ -175,14 +175,6 @@ mappings:
     index_offset: 18
     modbus_type: "coils"
     modbus_address: 19
-    data_type: "bool"
-    description: "PG Full End callback"
-
-  - ads_var: "lifebit"
-    index_group: 0x4020
-    index_offset: 19
-    modbus_type: "coils"
-    modbus_address: 20
     data_type: "bool"
     description: "PG Full End callback"
 

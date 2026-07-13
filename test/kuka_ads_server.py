@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 # - route_ip 配置为 127.0.0.1 (真实可达)
 # 这样可以测试当 ams_net_id 不通时，是否能通过 route_ip 回退连接
 
-FAKE_AMS_NET_ID = "999.999.999.999.1.1"  # 虚构的不可达 AMS Net ID
+FAKE_AMS_NET_ID = "127.0.0.1.1.1"  # 虚构的不可达 AMS Net ID
 REAL_BIND_IP = "127.0.0.1"               # 服务器实际绑定 IP
 SERVER_PORT = 48898
 
@@ -23,6 +23,43 @@ class ADSHandler(AdvancedHandler):
     def __init__(self):
         super().__init__()
         self._register_variables()
+
+    def _get_var_name(self, index_group, index_offset):
+        """根据 index_group/index_offset 查找变量名"""
+        var = self._data.get((index_group, index_offset))
+        return var.name if var else f"UNKNOWN(0x{index_group:X},0x{index_offset:X})"
+
+    def handle_request(self, request):
+        """覆写 handle_request，在 READ/WRITE 时额外打印变量名"""
+        import struct
+        from pyads.testserver.testserver import AmsResponseData
+
+        command_id = struct.unpack("<H", request.ams_header.command_id)[0]
+
+        if command_id == constants.ADSCOMMAND_READ:
+            data = request.ams_header.data
+            index_group = struct.unpack("<I", data[:4])[0]
+            index_offset = struct.unpack("<I", data[4:8])[0]
+            var_name = self._get_var_name(index_group, index_offset)
+            logger.info(f"[READ] {var_name} (0x{index_group:X}:0x{index_offset:X})")
+
+        elif command_id == constants.ADSCOMMAND_WRITE:
+            data = request.ams_header.data
+            index_group = struct.unpack("<I", data[:4])[0]
+            index_offset = struct.unpack("<I", data[4:8])[0]
+            plc_datatype = struct.unpack("<I", data[8:12])[0]
+            value = data[12:(12 + plc_datatype)]
+            var_name = self._get_var_name(index_group, index_offset)
+            logger.info(f"[WRITE] {var_name} (0x{index_group:X}:0x{index_offset:X}) = {value.hex()}")
+
+        try:
+            return super().handle_request(request)
+        except KeyError as e:
+            state = struct.unpack("<H", request.ams_header.state_flags)[0]
+            state = struct.pack("<H", state | 0x0001)
+            error_code = struct.pack("<I", 0x0702)  # ADS错误: 变量不存在
+            logger.warning(f"[ERROR] Variable not found: {e}")
+            return AmsResponseData(state, error_code, b"")
 
     def _register_variables(self):
         variables = [
@@ -58,7 +95,25 @@ class ADSHandler(AdvancedHandler):
             logger.info(f"Registered variable: {var.name} -> index_group=0x{var.index_group:08X}, index_offset=0x{var.index_offset:08X}, type={var.symbol_type}, value={var.value}")
 
 
+def _patch_logging():
+    """Monkey-patch AdsTestServer/AdsClientConnection 添加连接断开日志"""
+    from pyads.testserver.testserver import AdsClientConnection as _OrigClient
+
+    _orig_run = _OrigClient.run
+
+    def _patched_run(self):
+        addr = self.client_address
+        logger.info(f"[CONNECTED] Client {addr[0]}:{addr[1]}")
+        try:
+            _orig_run(self)
+        finally:
+            logger.info(f"[DISCONNECTED] Client {addr[0]}:{addr[1]}")
+
+    _OrigClient.run = _patched_run
+
+
 def start_ads_test_server(bind_ip=REAL_BIND_IP, port=SERVER_PORT):
+    _patch_logging()
     handler = ADSHandler()
     server = AdsTestServer(handler, bind_ip, port)
     logger.info(f"Starting ADS Test Server on {bind_ip}:{port}...")
